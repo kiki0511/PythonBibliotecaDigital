@@ -1,0 +1,295 @@
+"""
+Sistema de Gestión de Biblioteca Digital
+Integración completa de todos los patrones de diseño.
+
+Este archivo demuestra:
+- Singleton: UsuarioManager, MaterialServiceRegistry
+- Factory Method: MaterialFactory
+- Observer: NotificacionService
+- Strategy: Estrategias de multa
+- Registry: Dispatch polimórfico en MaterialServiceRegistry
+"""
+
+from datetime import date, timedelta
+
+# Singleton
+from biblioteca_digital.servicios.usuarios.usuario_manager import UsuarioManager
+
+# Factory
+from biblioteca_digital.patrones.factory.material_factory import MaterialFactory
+
+# Registry
+from biblioteca_digital.servicios.materiales.material_service_registry import MaterialServiceRegistry
+
+# Observer
+from biblioteca_digital.notificaciones.notificacion_service import NotificacionService
+from biblioteca_digital.patrones.observer.observer import Observer
+from biblioteca_digital.notificaciones.notificacion import Notificacion
+
+# Servicios
+from biblioteca_digital.servicios.prestamos.prestamo_service import PrestamoService
+from biblioteca_digital.servicios.prestamos.reserva_service import ReservaService
+from biblioteca_digital.servicios.usuarios.usuario_service import UsuarioService
+
+# Constantes
+from biblioteca_digital.constantes import ESTADO_MATERIAL_PRESTADO
+
+
+class ConsoleNotifier(Observer[Notificacion]):
+    """Observador que imprime notificaciones en consola."""
+
+    def actualizar(self, notificacion: Notificacion) -> None:
+        """Imprime la notificación."""
+        print(f"  [NOTIFICACION] {notificacion.get_mensaje()}")
+
+
+def imprimir_seccion(titulo: str):
+    """Imprime un título de sección."""
+    print(f"\n{'=' * 70}")
+    print(f"{titulo:^70}")
+    print(f"{'=' * 70}\n")
+
+
+def main():
+    """Función principal que demuestra todos los patrones."""
+
+    print("\n")
+    print("=" * 70)
+    print(" SISTEMA DE GESTION DE BIBLIOTECA DIGITAL ".center(70))
+    print("=" * 70)
+
+    # ========== PATRON SINGLETON ==========
+    imprimir_seccion("PATRON SINGLETON - UsuarioManager")
+
+    # Crear dos referencias al UsuarioManager
+    manager1 = UsuarioManager.get_instance()
+    manager2 = UsuarioManager()
+
+    # Verificar que son la misma instancia
+    print("[OK] Verificando Singleton...")
+    print(f"manager1 ID: {id(manager1)}")
+    print(f"manager2 ID: {id(manager2)}")
+    print(f"Son la misma instancia: {manager1 is manager2}")
+
+    # ========== REGISTRAR USUARIOS ==========
+    imprimir_seccion("REGISTRAR USUARIOS CON DIFERENTES MEMBRESIAS")
+
+    # Usuario con membresía Premium (sin multas)
+    usuario_premium = manager1.registrar_usuario(
+        dni=12345678,
+        nombre="Juan Perez",
+        email="juan@email.com",
+        tipo_membresia="Premium"
+    )
+    print(f"[OK] Usuario Premium registrado: {usuario_premium}")
+
+    # Usuario con membresía Básica (multa estándar)
+    usuario_basico = manager1.registrar_usuario(
+        dni=87654321,
+        nombre="Maria Lopez",
+        email="maria@email.com",
+        tipo_membresia="Basica"
+    )
+    print(f"[OK] Usuario Básico registrado: {usuario_basico}")
+
+    # Usuario con membresía Estándar (multa reducida)
+    usuario_estandar = manager1.registrar_usuario(
+        dni=11223344,
+        nombre="Carlos Rodriguez",
+        email="carlos@email.com",
+        tipo_membresia="Estandar"
+    )
+    print(f"[OK] Usuario Estándar registrado: {usuario_estandar}")
+
+    # ========== PATRON FACTORY METHOD ==========
+    imprimir_seccion("PATRON FACTORY METHOD - Crear Materiales")
+
+    # Crear 4 tipos de materiales usando Factory
+    libro = MaterialFactory.crear_material(
+        tipo="Libro",
+        titulo="Cien años de soledad",
+        autor="Gabriel García Márquez"
+    )
+    print(f"[OK] Libro creado: {libro}")
+
+    revista = MaterialFactory.crear_material(
+        tipo="Revista",
+        titulo="National Geographic",
+        autor="National Geographic Society"
+    )
+    print(f"[OK] Revista creada: {revista}")
+
+    ebook = MaterialFactory.crear_material(
+        tipo="eBook",
+        titulo="Python Programming",
+        autor="Guido van Rossum"
+    )
+    print(f"[OK] eBook creado: {ebook}")
+
+    audiolibro = MaterialFactory.crear_material(
+        tipo="Audiolibro",
+        titulo="El Principito",
+        autor="Antoine de Saint-Exupéry"
+    )
+    print(f"[OK] Audiolibro creado: {audiolibro}")
+
+    # ========== PATRON REGISTRY ==========
+    imprimir_seccion("PATRON REGISTRY - Dispatch Polimórfico")
+
+    # Obtener instancia única del Registry
+    registry = MaterialServiceRegistry.get_instance()
+
+    # Usar Registry para obtener días de préstamo (sin isinstance)
+    print("[OK] Obteniendo días de préstamo por tipo:")
+    print(f"  Libro: {registry.obtener_dias_prestamo(libro)} días")
+    print(f"  Revista: {registry.obtener_dias_prestamo(revista)} días")
+    print(f"  eBook: {registry.obtener_dias_prestamo(ebook)} días")
+    print(f"  Audiolibro: {registry.obtener_dias_prestamo(audiolibro)} días")
+
+    print("\n[OK] Obteniendo descripciones específicas:")
+    print(f"  {registry.obtener_descripcion(libro)}")
+    print(f"  {registry.obtener_descripcion(revista)}")
+    print(f"  {registry.obtener_descripcion(ebook)}")
+    print(f"  {registry.obtener_descripcion(audiolibro)}")
+
+    # ========== PATRON OBSERVER ==========
+    imprimir_seccion("PATRON OBSERVER - Sistema de Notificaciones")
+
+    # Crear servicio de notificaciones (Observable)
+    notif_service = NotificacionService()
+
+    # Crear y agregar observador
+    console_notifier = ConsoleNotifier()
+    notif_service.agregar_observador(console_notifier)
+
+    print("[OK] Observador registrado en el sistema de notificaciones")
+
+    # ========== REALIZAR PRESTAMOS ==========
+    imprimir_seccion("REALIZAR PRESTAMOS")
+
+    prestamo_service = PrestamoService()
+
+    # Préstamo 1: Usuario Premium - Libro
+    print("[ACCION] Usuario Premium solicita préstamo de libro...")
+    prestamo1 = prestamo_service.realizar_prestamo(usuario_premium, libro)
+    notif_service.notificar_prestamo_realizado(usuario_premium, libro)
+    print(f"[OK] {prestamo1}")
+    print(f"  Vence el: {prestamo1.get_fecha_vencimiento()}")
+
+    # Préstamo 2: Usuario Básico - eBook
+    print("\n[ACCION] Usuario Básico solicita préstamo de eBook...")
+    prestamo2 = prestamo_service.realizar_prestamo(usuario_basico, ebook)
+    notif_service.notificar_prestamo_realizado(usuario_basico, ebook)
+    print(f"[OK] {prestamo2}")
+    print(f"  Vence el: {prestamo2.get_fecha_vencimiento()}")
+
+    # ========== PATRON STRATEGY ==========
+    imprimir_seccion("PATRON STRATEGY - Cálculo de Multas")
+
+    # Simular devolución con retraso
+    print("[SIMULACION] Devoluciones con 5 días de retraso:\n")
+
+    # Usuario Premium: Sin multa (Strategy SinMultaStrategy)
+    multa_premium = usuario_premium.calcular_multa(5)
+    print(f"Usuario Premium ({usuario_premium.get_nombre()}):")
+    print(f"  Dias de retraso: 5")
+    print(f"  Multa: ${multa_premium:.2f}")
+    print(f"  Estrategia: SinMultaStrategy")
+
+    # Usuario Básico: Multa estándar (Strategy MultaEstandarStrategy)
+    multa_basico = usuario_basico.calcular_multa(5)
+    print(f"\nUsuario Básico ({usuario_basico.get_nombre()}):")
+    print(f"  Dias de retraso: 5")
+    print(f"  Multa: ${multa_basico:.2f}")
+    print(f"  Estrategia: MultaEstandarStrategy (2.00/día)")
+
+    # Usuario Estándar: Multa reducida (Strategy MultaReducidaStrategy)
+    multa_estandar = usuario_estandar.calcular_multa(5)
+    print(f"\nUsuario Estándar ({usuario_estandar.get_nombre()}):")
+    print(f"  Dias de retraso: 5")
+    print(f"  Multa: ${multa_estandar:.2f}")
+    print(f"  Estrategia: MultaReducidaStrategy (1.00/día)")
+
+    # ========== DEVOLVER MATERIALES ==========
+    imprimir_seccion("DEVOLVER MATERIALES Y CALCULAR MULTAS")
+
+    # Simular devolución con retraso real
+    prestamo1.set_fecha_devolucion(date.today() + timedelta(days=5))
+    dias_retraso = prestamo1.calcular_dias_retraso()
+
+    print(f"[ACCION] Devolviendo: {libro.get_titulo()}")
+    multa_real = prestamo_service.devolver_material(prestamo1)
+    print(f"  Días de retraso: {dias_retraso}")
+    print(f"  Multa generada: ${multa_real:.2f}")
+
+    if multa_real > 0:
+        notif_service.notificar_multa(usuario_premium, multa_real, dias_retraso)
+    else:
+        notif_service.notificar_devolucion(usuario_premium, libro)
+
+    # ========== CREAR RESERVAS ==========
+    imprimir_seccion("CREAR RESERVAS")
+
+    reserva_service = ReservaService()
+
+    # Hacer que revista esté prestada
+    revista.set_estado(ESTADO_MATERIAL_PRESTADO)
+
+    print(f"[ACCION] Usuario Estándar intenta reservar: {revista.get_titulo()}")
+    reserva = reserva_service.crear_reserva(usuario_estandar, revista)
+    print(f"[OK] {reserva}")
+    notif_service.notificar_material_disponible(usuario_estandar, revista)
+
+    # ========== PERSISTENCIA ==========
+    imprimir_seccion("PERSISTENCIA - Guardar y Cargar Usuarios")
+
+    usuario_service = UsuarioService()
+
+    # Guardar usuario en disco
+    print("[ACCION] Guardando usuario en disco...")
+    ruta = usuario_service.guardar_usuario(usuario_premium)
+    print(f"[OK] Usuario guardado en: {ruta}")
+
+    # Cargar usuario desde disco
+    print("\n[ACCION] Cargando usuario desde disco...")
+    usuario_cargado = usuario_service.cargar_usuario("Juan Perez")
+    print(f"[OK] Usuario cargado: {usuario_cargado}")
+    print(f"  DNI: {usuario_cargado.get_dni()}")
+    print(f"  Email: {usuario_cargado.get_email()}")
+    print(f"  Membresía: {usuario_cargado.get_membresia().get_tipo()}")
+
+    # ========== RESUMEN FINAL ==========
+    imprimir_seccion("RESUMEN DE PATRONES IMPLEMENTADOS")
+
+    print("[OK] SINGLETON")
+    print("  - UsuarioManager: Instancia única del gestor de usuarios")
+    print("  - MaterialServiceRegistry: Instancia única del registro")
+
+    print("\n[OK] FACTORY METHOD")
+    print("  - MaterialFactory: Crea 4 tipos de materiales sin exponer clases")
+    print("  - Tipos: Libro, Revista, eBook, Audiolibro")
+
+    print("\n[OK] OBSERVER")
+    print("  - NotificacionService: Observable[Notificacion]")
+    print("  - ConsoleNotifier: Observer que imprime notificaciones")
+    print("  - Notificaciones: Préstamo, Devolución, Reserva, Multa")
+
+    print("\n[OK] STRATEGY")
+    print("  - SinMultaStrategy: Membresía Premium (0.00/día)")
+    print("  - MultaEstandarStrategy: Membresía Básica (2.00/día)")
+    print("  - MultaReducidaStrategy: Membresía Estándar (1.00/día)")
+
+    print("\n[OK] REGISTRY")
+    print("  - MaterialServiceRegistry: Dispatch polimórfico")
+    print("  - Operaciones: obtener_dias_prestamo(), obtener_descripcion()")
+    print("  - Sin cascadas de isinstance()")
+
+    print("\n")
+    print("=" * 70)
+    print(" SISTEMA DE BIBLIOTECA DIGITAL - PRUEBA COMPLETADA EXITOSAMENTE ".center(70))
+    print("=" * 70)
+    print()
+
+
+if __name__ == "__main__":
+    main()
